@@ -105,7 +105,10 @@ class Response:
 
 class Request:
     def __init__(self, request_text):
-        request_line, headers_alone = request_text.split('\r\n', 1)
+        try:
+            request_line, headers_alone = request_text.split('\r\n', 1)
+        except:
+            return
         self.method, self.path, self.request_version = request_line.split(' ')
 
         self.headers = {}

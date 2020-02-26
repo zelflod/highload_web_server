@@ -13,4 +13,6 @@ loop.call_soon(hello_world, loop)
 
 # Blocking call interrupted by loop.stop()
 loop.run_forever()
-loop.close()
+# loop.close()
+
+loop.add_reader()
