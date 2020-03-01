@@ -42,7 +42,7 @@ try:
                     req = Request(requests[fileno].decode())
                     res = Response()
 
-                    dir_index = 'index.html'
+                    dir_index = '../src/index.html'
                     DOCUMENT_ROOT = '.'
                     # DOCUMENT_ROOT = '/var/www/html'
 

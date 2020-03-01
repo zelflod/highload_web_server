@@ -5,6 +5,12 @@ import argparse
 class Config:
     section = 'dummy_section'
     config = configparser.ConfigParser(inline_comment_prefixes='#', delimiters=' ')
+    host = '0.0.0.0'
+    port = 8085
+    max_waiting_conns = 5
+    recv_buf_size = 1024
+    conn_timeout = 10
+    dir_index = 'index.html'
 
     def init(self, conf_path):
         with open(conf_path, 'r') as f:
@@ -22,6 +28,10 @@ class Config:
     @property
     def document_root(self):
         return self.config.get(self.section, 'document_root')
+
+    @property
+    def address(self):
+        return self.host, self.port
 
 
 def get_conf_path():

@@ -3,7 +3,7 @@ from email.utils import formatdate
 from datetime import datetime
 from time import mktime
 from enum import Enum
-
+import os
 
 class Methods:
     Get = 'GET'
@@ -53,7 +53,7 @@ headers = {
 
 
 def guess_mime_type(filename):
-    print('guess_mime_type', filename)
+    # print('guess_mime_type', filename)
     return mimetypes.guess_type(filename)
 
 
@@ -74,14 +74,16 @@ class Response:
     content_type = ''
     content_length = ''
 
-    def __init__(self):
+    def __init__(self, conn, loop):
         self.status = 200
         self.closed = False
+        self.conn = conn
+        self.loop = loop
 
     def read(self):
         print('read')
 
-    def parse_http(self):
+    def parse_http(self, include_body=True):
         res = '{} {} {}\r\n'.format(self.response_version, self.status, STATUS_CODES[self.status])
         res += 'Date: {}\r\n'.format(get_now_datetime())
         res += 'Server: {}\r\n'.format('not_nginx')
@@ -91,7 +93,8 @@ class Response:
             res += 'Content-Length: {}\r\n'.format(self.content_length)
             res += '\r\n'
         res_bytes = bytes(res, 'utf8')
-        res_bytes += self.body
+        if include_body:
+            res_bytes += self.body
 
         return res_bytes
 
@@ -100,27 +103,36 @@ class Response:
         self.body = data
         # self.content_type = 'text/plain'
         self.content_type = guess_mime_type(filename)[0]
-        self.content_length = len(self.body)
+        # self.content_length = len(self.body)
+        with open(filename, 'rb') as f:
+            file_len = os.path.getsize(filename)
+            self.content_length = str(file_len)
+
+    async def send(self, data):
+        await self.loop.sock_sendall(self.conn, data)
+
+    async def send_file(self, file):
+        await self.loop.sock_sendfile(self.conn, file)
+
+    def end(self):
+        self.conn.close()
 
 
 class Request:
     def __init__(self, request_text):
         try:
-            request_line, headers_alone = request_text.split('\r\n', 1)
+            request_line, headers_text = request_text.split('\r\n', 1)
         except:
             return
-        self.method, self.path, self.request_version = request_line.split(' ')
+        self.method, path_string, self.request_version = request_line.split(' ')
+
+        try:
+            self.path, query_params = path_string.split('?')
+        except ValueError:
+            self.path = path_string
 
         self.headers = {}
-        for h in headers_alone.split('\r\n'):
+        for h in headers_text.split('\r\n'):
             h = h.split(':', 1)
             if len(h) == 2:
                 self.headers[h[0]] = h[1]
-
-
-class HTTPConnection:
-    # https: // docs.python.org / 3.6 / library / http.client.html  # httpconnection-objects
-    request = {}
-
-    def __init__(self):
-        print('http connection')

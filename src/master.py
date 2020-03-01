@@ -9,10 +9,10 @@ import multiprocessing
 
 def main(config):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(('localhost', 8086))
-    sock.listen(100)
+    sock.bind(config.address)
+    sock.listen(config.max_waiting_conns)
     sock.setblocking(False)
-    print("Running server")
+    print("Running server {}".format(config.address))
 
     print(getFds(os.getpid()))
     print(getPos(os.getpid(), sock.fileno()))
@@ -22,7 +22,7 @@ def main(config):
 
     workers = []
     for x in range(config.cpu_limit):
-        w = Worker(sock)
+        w = Worker(sock, config)
         workers.append(w)
         w.start()
 

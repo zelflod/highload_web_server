@@ -1,11 +1,11 @@
 import multiprocessing
 import os
 import asyncio
-import logging
 import socket
 from my_http import Request, Response, Methods
 from pathlib import Path
 import time
+import urllib.parse
 
 
 def getFds(pid):
@@ -18,18 +18,18 @@ def getPos(pid, fd):
 
 
 class Worker(multiprocessing.Process):
-    def __init__(self, sock: socket.socket):
+    def __init__(self, sock, config):
         super(Worker, self).__init__()
         self.sock = sock
-        # self.loop = asyncio.new_event_loop()
         self.loop = None
+        self.config = config
 
     def run(self):
         self.loop = asyncio.get_event_loop()
 
         info(self.name)
 
-        self.loop.set_debug(True)
+        # self.loop.set_debug(True)
         print(asyncio.get_event_loop_policy())
         print(self.loop)
         print('')
@@ -40,78 +40,116 @@ class Worker(multiprocessing.Process):
         # for x in getFds(os.getpid()):
         #     print(os.fstat(int(x)))
 
-
         try:
             self.loop.run_until_complete(self.work())
         except KeyboardInterrupt as e:
             print("Caught keyboard interrupt. Canceling tasks...")
-            # logging.info("Process interrupted")
         finally:
-            # logging.info("Successfully shutdown worker.")
             print('Successfully shutdown worker.')
             self.loop.close()
 
     async def work(self):
         while True:
             conn, _ = await self.loop.sock_accept(self.sock)
-            info("WORK " + self.name)
-            print("")
-            conn.settimeout(10)
+            # info("WORK " + self.name)
+            # print("")
+            conn.settimeout(self.config.conn_timeout)
             conn.setblocking(False)
             self.loop.create_task(self.handle_conn(conn))
 
-            # await asyncio.sleep(10)
-
     async def handle_conn(self, conn):
-        if self.name == "Worker-1":
-            time.sleep(100)
-        req_data = await self.loop.sock_recv(conn, 1000)
+        req_data = await self.loop.sock_recv(conn, self.config.recv_buf_size)
 
-        info("HANDLE_CONN " + self.name)
-        print("")
-
-        # response = b'HTTP/1.1 200 OK\r\nDate: Mon, 1 Jan 1996 01:01:01 GMT\r\n'
-        # response += b'my-key: my-value\r\n'
+        # info("HANDLE_CONN " + self.name)
+        # print("")
 
         req = Request(req_data.decode())
-        res = Response()
+        res = Response(conn, self.loop)
 
-        dir_index = 'index.html'
-        DOCUMENT_ROOT = '.'
-        res_p = None
+        self.loop.create_task(self.handle(req, res))
 
+    async def handle(self, req, res):
+        # print(req.method, req.path)
 
-        if req.method == Methods.Get or req.method == Methods.Head:
+        if req.method != Methods.Get and req.method != Methods.Head:
+            res.status = 405
+            response = res.parse_http()
+            await res.send(response)
+            return res.end()
+
+        path = urllib.parse.unquote(req.path)
+
+        if req.path.endswith('/'):
+            path += self.config.dir_index
+
+        p = Path(self.config.document_root)
+        path = str(p) + path
+        p = Path(path)
+
+        norm_path = os.path.normpath(path)
+        if norm_path[:len(self.config.document_root)] != self.config.document_root:
+            res.status = 403
+            response = res.parse_http()
+            await res.send(response)
+            return res.end()
+
+        if not p.exists() or not p.is_file():
             if req.path.endswith('/'):
-                req.path += dir_index
-
-            p = Path(DOCUMENT_ROOT)
-            p = Path(str(p) + req.path)
-            res_p = p
-            data = ''
-            if p.exists() and p.is_file():
-                with p.open('rb') as f:
-                    data = f.read()
-                    res.set_body(data, req.path)
+                res.status = 403
             else:
                 res.status = 404
-        else:
-            res.status = 405
+            response = res.parse_http()
+            await res.send(response)
+            return res.end()
 
-        print(res.parse_http())
-        response = res.parse_http()
+        with p.open('rb') as f:
+            res.set_body("has body", path)
+            response = res.parse_http(False)
+            await res.send(response)
+            if req.method != Methods.Head:
+                await res.send_file(f)
+            res.end()
 
-        await self.loop.sock_sendall(conn, response)
+        # if req.method == Methods.Get or req.method == Methods.Head:
+        #     path = urllib.parse.unquote(req.path)
+        #
+        #     if req.path.endswith('/'):
+        #         path += self.config.dir_index
+        #
+        #     p = Path(self.config.document_root)
+        #     p = Path(str(p) + path)
+        #
+        #     norm_path = os.path.normpath(str(p) + path)
+        #     if norm_path[:len(self.config.document_root)] != self.config.document_root:
+        #         res.status = 403
+        #     else:
+        #         res_p = p
+        #         data = ''
+        #         if p.exists() and p.is_file():
+        #             with p.open('rb') as f:
+        #                 data = f.read()
+        #                 res.set_body(data, path)
+        #         else:
+        #             if req.path.endswith('/'):
+        #                 res.status = 403
+        #             else:
+        #                 res.status = 404
+        # else:
+        #     res.status = 405
 
-        # if res_p.exists() and res_p.is_file():
-        #     with res_p.open('rb') as ff:
-        #         await self.loop.sock_sendfile(conn, ff)
-
-        conn.close()
-
-    async def hanle(self):
-        pass
-
+        # print(res.status, res.path)
+        # include_body = True if req.method != Methods.Head else False
+        # response = res.parse_http(include_body)
+        #
+        # # await self.loop.sock_sendall(conn, response)
+        # await res.send(response)
+        #
+        # # if res_p.exists() and res_p.is_file():
+        # #     with res_p.open('rb') as ff:
+        # #         await self.loop.sock_sendfile(conn, ff)
+        #
+        # # conn.close()
+        # res.end()
 
 
 def info(title):
