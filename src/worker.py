@@ -1,10 +1,8 @@
 import multiprocessing
 import os
 import asyncio
-import socket
 from my_http import Request, Response, Methods
 from pathlib import Path
-import time
 import urllib.parse
 
 
@@ -27,16 +25,16 @@ class Worker(multiprocessing.Process):
     def run(self):
         self.loop = asyncio.get_event_loop()
 
-        info(self.name)
+        # info(self.name)
 
         # self.loop.set_debug(True)
-        print(asyncio.get_event_loop_policy())
-        print(self.loop)
-        print('')
+        # print(asyncio.get_event_loop_policy())
+        # print(self.loop)
+        # print('')
 
-        print(self.sock.fileno())
-        print(getFds(os.getpid()))
-        print(getPos(os.getpid(), self.sock.fileno()))
+        # print(self.sock.fileno())
+        # print(getFds(os.getpid()))
+        # print(getPos(os.getpid(), self.sock.fileno()))
         # for x in getFds(os.getpid()):
         #     print(os.fstat(int(x)))
 
@@ -66,16 +64,23 @@ class Worker(multiprocessing.Process):
         req = Request(req_data.decode())
         res = Response(conn, self.loop)
 
-        self.loop.create_task(self.handle(req, res))
+        res, include_body = self.handle(req, res)
 
-    async def handle(self, req, res):
+        response = res.get_http_headers()
+        await res.send(response)
+
+        if include_body:
+            with res.body_filepath.open('rb') as f:
+                await res.send_file(f)
+        res.end()
+
+    def handle(self, req, res):
+        # print(req)
         # print(req.method, req.path)
 
         if req.method != Methods.Get and req.method != Methods.Head:
             res.status = 405
-            response = res.parse_http()
-            await res.send(response)
-            return res.end()
+            return res, False
 
         path = urllib.parse.unquote(req.path)
 
@@ -89,67 +94,18 @@ class Worker(multiprocessing.Process):
         norm_path = os.path.normpath(path)
         if norm_path[:len(self.config.document_root)] != self.config.document_root:
             res.status = 403
-            response = res.parse_http()
-            await res.send(response)
-            return res.end()
+            return res, False
 
         if not p.exists() or not p.is_file():
             if req.path.endswith('/'):
                 res.status = 403
             else:
                 res.status = 404
-            response = res.parse_http()
-            await res.send(response)
-            return res.end()
+            return res, False
 
-        with p.open('rb') as f:
-            res.set_body("has body", path)
-            response = res.parse_http(False)
-            await res.send(response)
-            if req.method != Methods.Head:
-                await res.send_file(f)
-            res.end()
-
-        # if req.method == Methods.Get or req.method == Methods.Head:
-        #     path = urllib.parse.unquote(req.path)
-        #
-        #     if req.path.endswith('/'):
-        #         path += self.config.dir_index
-        #
-        #     p = Path(self.config.document_root)
-        #     p = Path(str(p) + path)
-        #
-        #     norm_path = os.path.normpath(str(p) + path)
-        #     if norm_path[:len(self.config.document_root)] != self.config.document_root:
-        #         res.status = 403
-        #     else:
-        #         res_p = p
-        #         data = ''
-        #         if p.exists() and p.is_file():
-        #             with p.open('rb') as f:
-        #                 data = f.read()
-        #                 res.set_body(data, path)
-        #         else:
-        #             if req.path.endswith('/'):
-        #                 res.status = 403
-        #             else:
-        #                 res.status = 404
-        # else:
-        #     res.status = 405
-
-        # print(res.status, res.path)
-        # include_body = True if req.method != Methods.Head else False
-        # response = res.parse_http(include_body)
-        #
-        # # await self.loop.sock_sendall(conn, response)
-        # await res.send(response)
-        #
-        # # if res_p.exists() and res_p.is_file():
-        # #     with res_p.open('rb') as ff:
-        # #         await self.loop.sock_sendfile(conn, ff)
-        #
-        # # conn.close()
-        # res.end()
+        include_body = False if req.method == Methods.Head else True
+        res.set_body_headers(p, path)
+        return res, include_body
 
 
 def info(title):

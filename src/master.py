@@ -14,9 +14,9 @@ def main(config):
     sock.setblocking(False)
     print("Running server {}".format(config.address))
 
-    print(getFds(os.getpid()))
-    print(getPos(os.getpid(), sock.fileno()))
-    print(os.fstat(sock.fileno()))
+    # print(getFds(os.getpid()))
+    # print(getPos(os.getpid(), sock.fileno()))
+    # print(os.fstat(sock.fileno()))
 
     # multiprocessing.set_start_method("fork")
 

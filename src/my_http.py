@@ -2,8 +2,8 @@ import mimetypes
 from email.utils import formatdate
 from datetime import datetime
 from time import mktime
-from enum import Enum
 import os
+
 
 class Methods:
     Get = 'GET'
@@ -40,8 +40,6 @@ STATUS_CODES = {
 
 allowed_methods = ['GET', 'HEAD']
 
-dir_index = 'index.html'
-DOCUMENT_ROOT = '?'
 
 headers = {
     'Server': 'python_non_blocking_server',
@@ -53,26 +51,18 @@ headers = {
 
 
 def guess_mime_type(filename):
-    # print('guess_mime_type', filename)
     return mimetypes.guess_type(filename)
-
-
-# print(guess_mime_type('some.js'))
-
-
-def process_request():
-    print("handle_request")
 
 
 class Response:
     headers = {}
     path = ''
-    body = b''
     response_version = 'HTTP/1.1'
     status = 200
     date = ''
     content_type = ''
     content_length = ''
+    body_filepath = None
 
     def __init__(self, conn, loop):
         self.status = 200
@@ -80,30 +70,22 @@ class Response:
         self.conn = conn
         self.loop = loop
 
-    def read(self):
-        print('read')
-
-    def parse_http(self, include_body=True):
+    def get_http_headers(self, include_body=True):
         res = '{} {} {}\r\n'.format(self.response_version, self.status, STATUS_CODES[self.status])
         res += 'Date: {}\r\n'.format(get_now_datetime())
         res += 'Server: {}\r\n'.format('not_nginx')
         res += 'Connection: {}\r\n'.format('close')
-        if self.body:
+        if self.body_filepath:
             res += 'Content-Type: {}\r\n'.format(self.content_type)
             res += 'Content-Length: {}\r\n'.format(self.content_length)
             res += '\r\n'
         res_bytes = bytes(res, 'utf8')
-        if include_body:
-            res_bytes += self.body
 
         return res_bytes
 
-    def set_body(self, data, filename):
-        # self.body = bytes(data, 'utf8')
-        self.body = data
-        # self.content_type = 'text/plain'
+    def set_body_headers(self, data, filename):
+        self.body_filepath = data
         self.content_type = guess_mime_type(filename)[0]
-        # self.content_length = len(self.body)
         with open(filename, 'rb') as f:
             file_len = os.path.getsize(filename)
             self.content_length = str(file_len)
@@ -120,18 +102,22 @@ class Response:
 
 class Request:
     def __init__(self, request_text):
+        self.method = ""
+        self.path = ""
+        self.request_version = ""
+        self.headers = {}
+
         try:
             request_line, headers_text = request_text.split('\r\n', 1)
+            self.method, path_string, self.request_version = request_line.split(' ')
         except:
             return
-        self.method, path_string, self.request_version = request_line.split(' ')
 
         try:
             self.path, query_params = path_string.split('?')
         except ValueError:
             self.path = path_string
 
-        self.headers = {}
         for h in headers_text.split('\r\n'):
             h = h.split(':', 1)
             if len(h) == 2:

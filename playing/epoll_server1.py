@@ -56,7 +56,7 @@ try:
                         if p.exists() and p.is_file():
                             with p.open('rb') as f:
                                 data = f.read()
-                                res.set_body(data, req.path)
+                                res.set_body_headers(data, req.path)
                         else:
                             # res.set_body(b'Not found\r\n', 'a.txt')
                             res.status = 404
@@ -64,8 +64,8 @@ try:
                         # res.set_body(b'Not allowed\r\n', 'a.txt')
                         res.status = 405
 
-                    print(res.parse_http())
-                    responses[fileno] = res.parse_http()
+                    print(res.get_http_headers())
+                    responses[fileno] = res.get_http_headers()
             elif event & select.EPOLLOUT:
                 byteswritten = connections[fileno].send(responses[fileno])
 
