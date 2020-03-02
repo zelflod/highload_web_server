@@ -6,15 +6,6 @@ from pathlib import Path
 import urllib.parse
 
 
-def getFds(pid):
-    return os.listdir('/proc/%s/fd/' % pid)
-
-
-def getPos(pid, fd):
-    with open('/proc/%s/fdinfo/%s' % (pid, fd)) as f:
-        return int(f.readline()[5:])
-
-
 class Worker(multiprocessing.Process):
     def __init__(self, sock, config):
         super(Worker, self).__init__()
@@ -24,19 +15,6 @@ class Worker(multiprocessing.Process):
 
     def run(self):
         self.loop = asyncio.get_event_loop()
-
-        # info(self.name)
-
-        # self.loop.set_debug(True)
-        # print(asyncio.get_event_loop_policy())
-        # print(self.loop)
-        # print('')
-
-        # print(self.sock.fileno())
-        # print(getFds(os.getpid()))
-        # print(getPos(os.getpid(), self.sock.fileno()))
-        # for x in getFds(os.getpid()):
-        #     print(os.fstat(int(x)))
 
         try:
             self.loop.run_until_complete(self.work())
@@ -49,17 +27,12 @@ class Worker(multiprocessing.Process):
     async def work(self):
         while True:
             conn, _ = await self.loop.sock_accept(self.sock)
-            # info("WORK " + self.name)
-            # print("")
             conn.settimeout(self.config.conn_timeout)
             conn.setblocking(False)
             self.loop.create_task(self.handle_conn(conn))
 
     async def handle_conn(self, conn):
         req_data = await self.loop.sock_recv(conn, self.config.recv_buf_size)
-
-        # info("HANDLE_CONN " + self.name)
-        # print("")
 
         req = Request(req_data.decode())
         res = Response(conn, self.loop)
@@ -75,9 +48,6 @@ class Worker(multiprocessing.Process):
         res.end()
 
     def handle(self, req, res):
-        # print(req)
-        # print(req.method, req.path)
-
         if req.method != Methods.Get and req.method != Methods.Head:
             res.status = 405
             return res, False
@@ -106,10 +76,3 @@ class Worker(multiprocessing.Process):
         include_body = False if req.method == Methods.Head else True
         res.set_body_headers(p, path)
         return res, include_body
-
-
-def info(title):
-    print(title)
-    print('module name:', __name__)
-    print('parent process:', os.getppid())
-    print('process id:', os.getpid())

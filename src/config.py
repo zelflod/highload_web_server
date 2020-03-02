@@ -6,7 +6,7 @@ class Config:
     section = 'dummy_section'
     config = configparser.ConfigParser(inline_comment_prefixes='#', delimiters=' ')
     host = '0.0.0.0'
-    port = 8085
+    port = 80
     max_waiting_conns = 5
     recv_buf_size = 1024
     conn_timeout = 10
@@ -35,7 +35,7 @@ class Config:
 
 
 def get_conf_path():
-    conf_path = 'httpd.conf'
+    conf_path = '/etc/httpd.conf'
     parser = argparse.ArgumentParser()
     parser.add_argument('--httpd_conf')
     args = parser.parse_args()

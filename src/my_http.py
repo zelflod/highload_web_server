@@ -40,7 +40,6 @@ STATUS_CODES = {
 
 allowed_methods = ['GET', 'HEAD']
 
-
 headers = {
     'Server': 'python_non_blocking_server',
     'Date': '',
@@ -94,7 +93,10 @@ class Response:
         await self.loop.sock_sendall(self.conn, data)
 
     async def send_file(self, file):
-        await self.loop.sock_sendfile(self.conn, file)
+        try:
+            await self.loop.sock_sendfile(self.conn, file)
+        except IOError as e:
+            pass
 
     def end(self):
         self.conn.close()
