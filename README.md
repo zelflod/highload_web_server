@@ -40,7 +40,7 @@ wrk -t12 -c400 -d30s http://localhost/httptest/wikipedia_russia.html
 ab -n 100000 -c 100 127.0.0.1/httptest/wikipedia_russia.html
 ```
 
-###### py_web_server with 8 CPU use
+##### py_web_server with 8 CPU use
 
 ![ab_py_web_server](benchmark/ab_py_web_server.png "ab_py_web_server")
 
@@ -49,7 +49,7 @@ ab -n 100000 -c 100 127.0.0.1/httptest/wikipedia_russia.html
 
 ![ab_nginx](benchmark/ab_nginx.png "ab_nginx")
 
-### Run nginx (for comparing performance)
+### Run nginx (to compare performance)
 
 ```
 docker run -it -v /tmp/highload_web_server/http-test-suite:/usr/share/nginx/html:ro -p 80:80 nginx
