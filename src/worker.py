@@ -39,8 +39,8 @@ class Worker(multiprocessing.Process):
 
         res, include_body = self.handle(req, res)
 
-        response = res.get_http_headers()
-        await res.send(response)
+        response_headers = res.get_http_headers()
+        await res.send(response_headers)
 
         if include_body:
             with res.body_filepath.open('rb') as f:

@@ -6,6 +6,7 @@ import socket
 
 
 def main(config):
+    # Создаём IPv4 сокет потокового типа (TCP/IPv4)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(config.address)
     sock.listen(config.max_waiting_conns)

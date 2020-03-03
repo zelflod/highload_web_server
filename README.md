@@ -13,9 +13,16 @@ cd /tmp
 git clone https://github.com/zelflod/highload_web_server.git
 
 docker build -t py_web_server https://github.com/zelflod/highload_web_server.git
-docker run -it -p 80:80 -v /tmp/highload_web_server/httpd.conf:/etc/httpd.conf:ro --name py_web_server -t py_web_server
+docker run -it -p 80:80 -v /tmp/highload_web_server/httpd.conf:/etc/httpd.conf:ro -v /tmp/highload_web_server/http-test-suite:/var/www/html:ro --name py_web_server -t py_web_server
 
 # sudo docker start -a py_web_server
+```
+
+```
+sudo docker build -t py_web_server .
+sudo docker run -it -p 80:80 -v /home/nozim/Documents/Univer/VKR/highload_web_server/httpd.conf:/etc/httpd.conf:ro -v /home/nozim/Documents/Univer/VKR/highload_web_server/http-test-suite:/var/www/html:ro --name py_web_server -t py_web_server
+
+# mkfile 2048m test_2048.txt
 ```
 
 Требования и методика тестирования (корректности работы) по ссылке: https://github.com/init/http-test-suite
